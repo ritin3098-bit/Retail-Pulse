@@ -1,23 +1,37 @@
-# Virtual environments
+# ==========================================
+# Virtual Environments
+# ==========================================
 venv/
 .venv/
 env/
 
-# Python cache
+# ==========================================
+# Python Cache Files
+# ==========================================
 __pycache__/
 *.py[cod]
+*$py.class
 
-# Environment variables and secrets
+# ==========================================
+# Environment Variables and Secrets
+# ==========================================
 .env
 .env.*
+!.env.example
 
-# Jupyter
+# ==========================================
+# Jupyter Notebook
+# ==========================================
 .ipynb_checkpoints/
 
-# Editor settings
+# ==========================================
+# IDE and Editor Settings
+# ==========================================
 .vscode/
 
-# Model files
+# ==========================================
+# Generated Machine Learning Models
+# ==========================================
 *.pkl
 *.joblib
 *.h5
@@ -25,18 +39,43 @@ __pycache__/
 *.pt
 *.pth
 
-# Ignore generated files but keep the folder structure
+# ==========================================
+# Processed Datasets
+# Keep the folder structure, ignore generated files
+# ==========================================
 data/processed/*
 !data/processed/.gitkeep
 
-# Generated figures
-figures/*
-!figures/.gitkeep
+# ==========================================
+# Generated Figures in Reports
+# Keep the folder structure, ignore generated figures
+# ==========================================
+reports/figures/*
+!reports/figures/.gitkeep
 
-# Generated figures and plots
-figures/
-reports/figures/
-outputs/figures/
-
-# Temporary files
+# ==========================================
+# Logs and Temporary Files
+# ==========================================
 *.log
+*.tmp
+*.temp
+
+# ==========================================
+# Operating System Files
+# ==========================================
+.DS_Store
+Thumbs.db
+
+# ==========================================
+# Python Testing and Coverage
+# ==========================================
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ==========================================
+# Build and Distribution Files
+# ==========================================
+build/
+dist/
+*.egg-info/
