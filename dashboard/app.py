@@ -1,42 +1,23 @@
 """
 RetailPulse Overview Dashboard.
 
-Displays:
-- Business KPIs
-- Monthly revenue trend
-- Customer segment distribution
-- Inventory health
-- Churn model health
-- Top countries and products figure
+Uses precomputed overview datasets to reduce memory usage.
 """
 
 import sys
 from pathlib import Path
 
-
-# ============================================================
-# PROJECT PATH
-# ============================================================
+import pandas as pd
+import streamlit as st
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# Ensure Python can import the src and dashboard packages.
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-
-# ============================================================
-# IMPORTS
-# ============================================================
-
-import streamlit as st
-
 from dashboard.auth import require_login
-
 from dashboard.utils import (
     inject_theme,
-    ensure_clean_data,
-    load_clean,
     load_segments,
     load_inventory,
     load_churn_metrics,
@@ -44,10 +25,9 @@ from dashboard.utils import (
     missing_data_notice,
 )
 
-
-# ============================================================
+# ------------------------------------------------------------
 # PAGE CONFIGURATION
-# ============================================================
+# ------------------------------------------------------------
 
 st.set_page_config(
     page_title="RetailPulse",
@@ -55,158 +35,167 @@ st.set_page_config(
     layout="wide",
 )
 
-
-# ============================================================
-# THEME AND AUTHENTICATION
-# ============================================================
-
 inject_theme()
-
-# Preserve the existing login/register functionality.
 require_login()
 
-
-# ============================================================
-# PAGE HEADER
-# ============================================================
-
 st.title("📊 RetailPulse")
-
 st.caption(
     "AI-Powered Customer Analytics & Demand Forecasting — Overview"
 )
 
+# ------------------------------------------------------------
+# PATHS AND CACHED LOADERS
+# ------------------------------------------------------------
 
-# ============================================================
-# PREPARE AND LOAD CLEANED DATA
-# ============================================================
-
-if not ensure_clean_data():
-    st.stop()
-
-clean = load_clean()
-
-if clean is None:
-    missing_data_notice(
-        "cleaned sales data",
-        "python -m src.data_prep",
-    )
-    st.stop()
+DATA_DIR = PROJECT_ROOT / "data" / "processed"
 
 
-# ============================================================
-# VALIDATE REQUIRED COLUMNS
-# ============================================================
+@st.cache_data
+def load_overview_kpis():
+    path = DATA_DIR / "overview_kpis.csv"
 
-required_columns = {
-    "Revenue",
-    "Invoice",
-    "Country",
-    "InvoiceDate",
-}
+    if not path.is_file() or path.stat().st_size == 0:
+        return None
 
-missing_columns = required_columns.difference(clean.columns)
+    try:
+        return pd.read_csv(path)
+    except (OSError, pd.errors.ParserError, UnicodeDecodeError):
+        return None
 
-if missing_columns:
-    st.error(
-        "The cleaned sales dataset is missing required columns: "
-        + ", ".join(sorted(missing_columns))
+
+@st.cache_data
+def load_overview_monthly():
+    path = DATA_DIR / "overview_monthly.csv"
+
+    if not path.is_file() or path.stat().st_size == 0:
+        return None
+
+    try:
+        return pd.read_csv(path)
+    except (OSError, pd.errors.ParserError, UnicodeDecodeError):
+        return None
+
+
+@st.cache_data
+def load_overview_countries():
+    path = DATA_DIR / "overview_countries.csv"
+
+    if not path.is_file() or path.stat().st_size == 0:
+        return None
+
+    try:
+        return pd.read_csv(path)
+    except (OSError, pd.errors.ParserError, UnicodeDecodeError):
+        return None
+
+
+# ------------------------------------------------------------
+# LOAD PRECOMPUTED OVERVIEW DATA
+# ------------------------------------------------------------
+
+kpis = load_overview_kpis()
+monthly = load_overview_monthly()
+countries = load_overview_countries()
+
+if kpis is None or monthly is None or countries is None:
+    st.error("One or more overview datasets are missing or unreadable.")
+
+    st.write("Expected files:")
+    st.code(
+        "data/processed/overview_kpis.csv\n"
+        "data/processed/overview_monthly.csv\n"
+        "data/processed/overview_countries.csv"
     )
 
     st.info(
-        "Check the output of `src/data_prep.py` and confirm that "
-        "the generated `clean_all.csv` contains the required columns."
+        "Generate these files locally, commit them to GitHub, "
+        "and redeploy the application."
     )
-
     st.stop()
 
 
-# ============================================================
-# KPI CALCULATIONS
-# ============================================================
+# ------------------------------------------------------------
+# KPI VALIDATION
+# ------------------------------------------------------------
 
-total_revenue = clean["Revenue"].sum()
+if not {"Metric", "Value"}.issubset(kpis.columns):
+    st.error("overview_kpis.csv must contain Metric and Value columns.")
+    st.stop()
 
-total_orders = clean["Invoice"].nunique()
+kpi_values = dict(zip(kpis["Metric"], kpis["Value"]))
 
-avg_order_value = (
-    total_revenue / total_orders
-    if total_orders > 0
-    else 0
-)
+required_metrics = {
+    "TotalRevenue",
+    "TotalOrders",
+    "AverageOrderValue",
+}
 
-country_revenue = (
-    clean.groupby("Country")["Revenue"]
-    .sum()
-    .dropna()
-)
+if not required_metrics.issubset(kpi_values):
+    st.error(
+        "overview_kpis.csv is missing one or more required metrics."
+    )
+    st.stop()
 
-top_country = (
-    country_revenue.idxmax()
-    if not country_revenue.empty
-    else "N/A"
-)
+total_revenue = float(kpi_values["TotalRevenue"])
+total_orders = int(float(kpi_values["TotalOrders"]))
+avg_order_value = float(kpi_values["AverageOrderValue"])
+
+top_country = "N/A"
+
+if {"Country", "Revenue"}.issubset(countries.columns):
+    countries["Revenue"] = pd.to_numeric(
+        countries["Revenue"], errors="coerce"
+    )
+    countries = countries.dropna(subset=["Revenue"])
+
+    if not countries.empty:
+        top_country = str(
+            countries.loc[countries["Revenue"].idxmax(), "Country"]
+        )
 
 
-# ============================================================
+# ------------------------------------------------------------
 # KPI ROW
-# ============================================================
+# ------------------------------------------------------------
 
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric(
-    "Total Revenue",
-    f"£{total_revenue:,.0f}",
-)
-
-col2.metric(
-    "Total Orders",
-    f"{total_orders:,}",
-)
-
-col3.metric(
-    "Avg Order Value",
-    f"£{avg_order_value:,.2f}",
-)
-
-col4.metric(
-    "Top Market",
-    top_country,
-)
-
+col1.metric("Total Revenue", f"£{total_revenue:,.0f}")
+col2.metric("Total Orders", f"{total_orders:,}")
+col3.metric("Avg Order Value", f"£{avg_order_value:,.2f}")
+col4.metric("Top Market", top_country)
 
 st.divider()
 
 
-# ============================================================
+# ------------------------------------------------------------
 # MONTHLY REVENUE TREND
-# ============================================================
+# ------------------------------------------------------------
 
 left, right = st.columns([3, 2])
-
 
 with left:
     st.subheader("Monthly Revenue Trend")
 
-    monthly = (
-        clean.dropna(subset=["InvoiceDate"])
-        .set_index("InvoiceDate")["Revenue"]
-        .resample("ME")
-        .sum()
-    )
-
-    if not monthly.empty:
-        st.line_chart(
-            monthly,
-            height=320,
+    if {"Month", "Revenue"}.issubset(monthly.columns):
+        monthly["Revenue"] = pd.to_numeric(
+            monthly["Revenue"], errors="coerce"
         )
+        monthly = monthly.dropna(subset=["Revenue"])
+
+        if not monthly.empty:
+            monthly_chart = monthly.set_index("Month")["Revenue"]
+            st.line_chart(monthly_chart, height=320)
+        else:
+            st.info("No monthly revenue data is available.")
     else:
-        st.info("No monthly revenue data is available.")
+        st.error(
+            "overview_monthly.csv must contain Month and Revenue columns."
+        )
 
-
-# ============================================================
+# ------------------------------------------------------------
 # CUSTOMER SEGMENTS
-# ============================================================
+# ------------------------------------------------------------
 
 with right:
     st.subheader("Customer Segments")
@@ -214,33 +203,19 @@ with right:
     rfm = load_segments()
 
     if rfm is not None and "Segment" in rfm.columns:
-        seg_counts = rfm["Segment"].value_counts()
-
-        st.bar_chart(
-            seg_counts,
-            height=320,
-        )
-
+        st.bar_chart(rfm["Segment"].value_counts(), height=320)
     else:
-        missing_data_notice(
-            "segmentation results",
-            "python -m src.segmentation",
-        )
+        st.info("Saved customer segmentation results are unavailable.")
 
 
 st.divider()
 
 
-# ============================================================
+# ------------------------------------------------------------
 # INVENTORY AND CHURN STATUS
-# ============================================================
+# ------------------------------------------------------------
 
 c1, c2 = st.columns(2)
-
-
-# ------------------------------------------------------------
-# Inventory Health
-# ------------------------------------------------------------
 
 with c1:
     st.subheader("Inventory Health")
@@ -248,25 +223,14 @@ with c1:
     inv = load_inventory()
 
     if inv is not None and "Status" in inv.columns:
-        n_reorder = (
-            inv["Status"] == "Reorder Now"
-        ).sum()
-
+        n_reorder = int((inv["Status"] == "Reorder Now").sum())
         st.metric(
             "Products Needing Reorder",
             f"{n_reorder} / {len(inv)}",
         )
-
     else:
-        missing_data_notice(
-            "inventory report",
-            "python -m src.inventory",
-        )
+        st.info("Saved inventory report is unavailable.")
 
-
-# ------------------------------------------------------------
-# Churn Model Health
-# ------------------------------------------------------------
 
 with c2:
     st.subheader("Churn Model Health")
@@ -280,29 +244,21 @@ with c2:
     ):
         row = cm.iloc[0]
 
-        st.metric(
-            "AUC-ROC",
-            f"{row['AUC_ROC']:.3f}",
-        )
-
+        st.metric("AUC-ROC", f"{float(row['AUC_ROC']):.3f}")
         st.metric(
             "Churn Rate (observed)",
-            f"{row['ChurnRate'] * 100:.1f}%",
+            f"{float(row['ChurnRate']) * 100:.1f}%",
         )
-
     else:
-        missing_data_notice(
-            "churn results",
-            "python -m src.churn",
-        )
+        st.info("Saved churn metrics are unavailable.")
 
 
 st.divider()
 
 
-# ============================================================
+# ------------------------------------------------------------
 # TOP COUNTRIES AND PRODUCTS
-# ============================================================
+# ------------------------------------------------------------
 
 st.subheader("Top Countries & Products")
 
@@ -312,9 +268,9 @@ show_figure_if_exists(
 )
 
 
-# ============================================================
+# ------------------------------------------------------------
 # FOOTER
-# ============================================================
+# ------------------------------------------------------------
 
 st.caption(
     "Use the sidebar to explore Forecasting, Segments & Churn, "
