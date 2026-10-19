@@ -6,7 +6,7 @@ venv/
 env/
 
 # ==========================================
-# Python Cache Files
+# Python Cache
 # ==========================================
 __pycache__/
 *.py[cod]
@@ -20,9 +20,10 @@ __pycache__/
 !.env.example
 
 # ==========================================
-# Jupyter Notebook
+# Jupyter Notebooks
+# Ignore the entire notebooks folder
 # ==========================================
-.ipynb_checkpoints/
+notebooks/
 
 # ==========================================
 # IDE and Editor Settings
@@ -30,7 +31,7 @@ __pycache__/
 .vscode/
 
 # ==========================================
-# Generated Machine Learning Models
+# Machine Learning Model Files
 # ==========================================
 *.pkl
 *.joblib
@@ -41,20 +42,20 @@ __pycache__/
 
 # ==========================================
 # Processed Datasets
-# Keep the folder structure, ignore generated files
+# Keep folder, ignore generated files
 # ==========================================
 data/processed/*
 !data/processed/.gitkeep
 
 # ==========================================
-# Generated Figures in Reports
-# Keep the folder structure, ignore generated figures
+# Generated Figures
+# Keep folder, ignore generated figures
 # ==========================================
 reports/figures/*
 !reports/figures/.gitkeep
 
 # ==========================================
-# Logs and Temporary Files
+# Temporary Files and Logs
 # ==========================================
 *.log
 *.tmp
@@ -67,7 +68,7 @@ reports/figures/*
 Thumbs.db
 
 # ==========================================
-# Python Testing and Coverage
+# Testing and Coverage
 # ==========================================
 .pytest_cache/
 .coverage
