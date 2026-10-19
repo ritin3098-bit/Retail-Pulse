@@ -1,0 +1,6 @@
+Model,MAPE
+Naive Baseline,16.36
+Prophet (no engineered feature),12.99
+Prophet (+ IsPeakSeason),11.73
+LSTM,20.79
+Ensemble,14.38
