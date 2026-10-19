@@ -4,7 +4,7 @@ RetailPulse automatic data and model pipeline.
 Run from the project root:
     python -m src.pipeline
 
-Pipeline order:
+Pipeline stages:
     1. Data preparation
     2. Customer segmentation
     3. Demand forecasting
@@ -16,6 +16,7 @@ Pipeline order:
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 
@@ -28,6 +29,11 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data" / "processed"
 FIG_DIR = PROJECT_ROOT / "reports" / "figures"
 REPORTS_DIR = PROJECT_ROOT / "reports"
+
+RAW_FILE = PROJECT_ROOT / "data" / "raw" / "online_retail_II.xlsx"
+
+# Prevent concurrent runs within this Python process.
+_PIPELINE_LOCK = threading.Lock()
 
 
 # ============================================================
@@ -86,39 +92,58 @@ STAGES = [
 ]
 
 
+# ============================================================
+# CUSTOM EXCEPTION
+# ============================================================
+
 class PipelineError(RuntimeError):
     """Raised when a pipeline stage fails."""
 
 
+# ============================================================
+# HELPER FUNCTIONS
+# ============================================================
+
 def outputs_exist(paths):
-    """Return True when all expected output files exist and are non-empty."""
+    """Return True if every expected output exists and is non-empty."""
+
     return all(
         path.is_file() and path.stat().st_size > 0
         for path in paths
     )
 
 
+def _log(message, log_callback=None):
+    """Print a message and optionally send it to the dashboard."""
+
+    print(message, flush=True)
+
+    if log_callback is not None:
+        log_callback(message)
+
+
+# ============================================================
+# RUN ONE PIPELINE STAGE
+# ============================================================
+
 def run_stage(stage, force=False, log_callback=None):
-    """Run one pipeline stage if its required outputs are missing."""
+    """Execute one stage, skipping it when outputs already exist."""
 
     name = stage["name"]
     module = stage["module"]
     required = stage["required"]
 
-    def log(message):
-        print(message, flush=True)
-
-        if log_callback is not None:
-            log_callback(message)
-
     if not force and outputs_exist(required):
-        log(f"SKIPPED: {name} — output files already exist.")
+        _log(
+            f"SKIPPED: {name} — required output files already exist.",
+            log_callback,
+        )
         return
 
-    log(f"\n{'=' * 60}")
-    log(f"STARTING: {name}")
-    log(f"Module: {module}")
-    log(f"{'=' * 60}")
+    _log(f"\n{'=' * 60}", log_callback)
+    _log(f"STARTING: {name}", log_callback)
+    _log(f"Module: {module}", log_callback)
+    _log(f"{'=' * 60}", log_callback)
 
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
@@ -127,6 +152,7 @@ def run_stage(stage, force=False, log_callback=None):
         result = subprocess.run(
             [
                 sys.executable,
+                "-u",
                 "-m",
                 module,
             ],
@@ -140,15 +166,29 @@ def run_stage(stage, force=False, log_callback=None):
         )
 
     except subprocess.TimeoutExpired as exc:
+        partial_output = exc.stdout or ""
+
+        if isinstance(partial_output, bytes):
+            partial_output = partial_output.decode(
+                "utf-8",
+                errors="replace",
+            )
+
         raise PipelineError(
-            f"{name} exceeded the 30-minute time limit. "
-            "Check the model's training time and available resources."
+            f"{name} exceeded the 30-minute time limit.\n"
+            f"Last output:\n{partial_output[-4000:]}"
+        ) from exc
+
+    except OSError as exc:
+        raise PipelineError(
+            f"Could not start {name} ({module}): {exc}"
         ) from exc
 
     output = result.stdout or ""
 
+    # Show the latest output in the logs.
     if output:
-        log(output[-10000:])
+        _log(output[-10000:], log_callback)
 
     if result.returncode != 0:
         raise PipelineError(
@@ -164,63 +204,98 @@ def run_stage(stage, force=False, log_callback=None):
 
     if missing:
         raise PipelineError(
-            f"{name} completed, but these output files are missing:\n"
+            f"{name} completed, but these output files "
+            f"are missing or empty:\n"
             + "\n".join(missing)
         )
 
-    log(f"COMPLETED: {name}")
+    _log(f"COMPLETED: {name}", log_callback)
 
+
+# ============================================================
+# RUN COMPLETE PIPELINE
+# ============================================================
 
 def run_pipeline(force=False, log_callback=None):
     """
-    Generate missing RetailPulse outputs.
+    Generate missing RetailPulse datasets and reports.
 
     Args:
-        force: Run every stage, even when outputs exist.
-        log_callback: Optional function for displaying progress.
+        force:
+            If True, run every stage even if its outputs exist.
+        log_callback:
+            Optional callback for reporting progress.
+
+    Raises:
+        PipelineError:
+            If another run is active, a stage fails, or the
+            required raw dataset is unavailable.
     """
 
-    raw_file = (
-        PROJECT_ROOT
-        / "data"
-        / "raw"
-        / "online_retail_II.xlsx"
-    )
-
-    if not raw_file.is_file():
+    # Avoid starting another pipeline in the same process.
+    if not _PIPELINE_LOCK.acquire(blocking=False):
         raise PipelineError(
-            "The raw dataset was not found at:\n"
-            "data/raw/online_retail_II.xlsx\n\n"
-            "Make the original Excel dataset available to the "
-            "application before running the pipeline."
+            "The RetailPulse pipeline is already running in this "
+            "Python process. Wait for it to finish before retrying."
         )
 
-    # Create output directories.
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    FIG_DIR.mkdir(parents=True, exist_ok=True)
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        # Validate the source dataset.
+        if not RAW_FILE.is_file():
+            raise PipelineError(
+                "The raw dataset was not found:\n"
+                "data/raw/online_retail_II.xlsx\n\n"
+                "Ensure the original Excel dataset is available "
+                "to the application."
+            )
 
-    def log(message):
-        print(message, flush=True)
+        # Prepare directories.
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        FIG_DIR.mkdir(parents=True, exist_ok=True)
+        REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-        if log_callback is not None:
-            log_callback(message)
-
-    log("RetailPulse automatic pipeline started.")
-
-    for stage in STAGES:
-        run_stage(
-            stage,
-            force=force,
-            log_callback=log_callback,
+        _log(
+            "RetailPulse automatic pipeline started.",
+            log_callback,
         )
 
-    log("\nRetailPulse pipeline completed successfully.")
+        # Execute stages sequentially.
+        for stage in STAGES:
+            run_stage(
+                stage=stage,
+                force=force,
+                log_callback=log_callback,
+            )
 
+        _log(
+            "\nRetailPulse pipeline completed successfully.",
+            log_callback,
+        )
+
+    finally:
+        _PIPELINE_LOCK.release()
+
+
+# ============================================================
+# COMMAND-LINE ENTRY POINT
+# ============================================================
 
 if __name__ == "__main__":
     try:
         run_pipeline()
+
     except PipelineError as exc:
-        print(f"\nPIPELINE ERROR:\n{exc}", file=sys.stderr)
+        print(
+            f"\nPIPELINE ERROR:\n{exc}",
+            file=sys.stderr,
+            flush=True,
+        )
+        sys.exit(1)
+
+    except Exception as exc:
+        print(
+            f"\nUNEXPECTED PIPELINE ERROR: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
         sys.exit(1)
