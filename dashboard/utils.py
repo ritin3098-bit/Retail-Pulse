@@ -130,111 +130,21 @@ def ensure_output_directories():
 
 def ensure_clean_data():
     """
-    Generate clean_all.csv if it is missing.
-
-    Requirements:
-    - src/data_prep.py must exist.
-    - The raw Excel dataset must be available at:
-      data/raw/online_retail_II.xlsx
-
-    Returns:
-        bool: True when clean_all.csv exists; otherwise False.
+    Check whether the saved cleaned dataset exists.
+    Do not run data preprocessing automatically.
     """
 
-    # No preprocessing is necessary if the required file exists.
-    if CLEAN_DATA_FILE.exists():
+    if CLEAN_DATA_FILE.is_file() and CLEAN_DATA_FILE.stat().st_size > 0:
         return True
 
-    # Check whether the source dataset is available.
-    if not RAW_DATA_FILE.exists():
-        st.error(
-            "The cleaned sales dataset is missing, and the original "
-            "Excel dataset could not be found."
-        )
+    st.error("The cleaned sales dataset is missing or empty.")
 
-        st.info(
-            "Make the Online Retail II dataset available at "
-            "`data/raw/online_retail_II.xlsx`, then restart or rerun "
-            "the application."
-        )
+    st.info(
+        "Expected file: data/processed/clean_all.csv. "
+        "Please verify that the file exists in your GitHub repository."
+    )
 
-        return False
-
-    # Ensure that output directories exist.
-    ensure_output_directories()
-
-    try:
-        with st.spinner(
-            "Preparing RetailPulse data for the first time. "
-            "This may take several minutes..."
-        ):
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "src.data_prep",
-                ],
-                cwd=str(PROJECT_ROOT),
-                capture_output=True,
-                text=True,
-                timeout=600,
-                check=False,
-            )
-
-        if result.returncode != 0:
-            st.error("RetailPulse data preprocessing failed.")
-
-            with st.expander("View preprocessing logs"):
-                if result.stdout:
-                    st.markdown("**Standard output**")
-                    st.code(result.stdout[-12000:])
-
-                if result.stderr:
-                    st.markdown("**Error output**")
-                    st.code(result.stderr[-12000:])
-
-            return False
-
-        # Confirm that the expected output was actually created.
-        if not CLEAN_DATA_FILE.exists():
-            st.error(
-                "The preprocessing script finished, but "
-                "`data/processed/clean_all.csv` was not created. "
-                "Check the output paths in `src/data_prep.py`."
-            )
-
-            with st.expander("View preprocessing output"):
-                if result.stdout:
-                    st.code(result.stdout[-12000:])
-
-                if result.stderr:
-                    st.code(result.stderr[-12000:])
-
-            return False
-
-        # Invalidate cached data so the new CSV is read.
-        load_clean.clear()
-
-        return True
-
-    except subprocess.TimeoutExpired:
-        st.error(
-            "Data preprocessing exceeded the 10-minute time limit. "
-            "Consider preparing the data separately or using external "
-            "storage for the generated dataset."
-        )
-
-        return False
-
-    except OSError as exc:
-        st.error(f"Could not start the preprocessing script: {exc}")
-        return False
-
-    except Exception as exc:
-        st.error(f"Unexpected error during preprocessing: {exc}")
-        return False
-
-
+    return False
 # ============================================================
 # SAFE CSV LOADER
 # ============================================================
