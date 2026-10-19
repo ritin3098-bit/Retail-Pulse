@@ -25,8 +25,13 @@ __pycache__/
 *.pt
 *.pth
 
-# Processed datasets
-data/processed/
+# Ignore generated files but keep the folder structure
+data/processed/*
+!data/processed/.gitkeep
+
+# Generated figures
+figures/*
+!figures/.gitkeep
 
 # Generated figures and plots
 figures/
