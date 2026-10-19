@@ -17,7 +17,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from src.pipeline import run_pipeline, PipelineError
+
 # ============================================================
 # PROJECT PATHS
 # ============================================================
@@ -369,72 +369,3 @@ def missing_data_notice(what: str, command: str):
         f"Run `{command}` first, then reload this page."
     )
     
-def ensure_pipeline_outputs():
-    """
-    Generate missing RetailPulse outputs automatically.
-
-    Run the pipeline only when required outputs are missing.
-    """
-    required_files = [
-        DATA_DIR / "clean_all.csv",
-        DATA_DIR / "rfm_segmented.csv",
-        DATA_DIR / "forecast_results.csv",
-        DATA_DIR / "forecast_metrics.csv",
-        DATA_DIR / "churn_results.csv",
-        DATA_DIR / "churn_metrics.csv",
-        DATA_DIR / "inventory_report.csv",
-    ]
-
-    missing_files = [
-        path for path in required_files
-        if not path.exists()
-    ]
-
-    if not missing_files:
-        return True
-
-    st.info(
-        "Some RetailPulse outputs are missing. "
-        "Preparing the required datasets and reports..."
-    )
-
-    try:
-        with st.spinner(
-            "Generating RetailPulse outputs. "
-            "This may take several minutes..."
-        ):
-            run_pipeline()
-
-        # Clear cached loaders so newly generated CSVs are visible.
-        load_clean.clear()
-        load_customers.clear()
-        load_segments.clear()
-        load_forecast_results.clear()
-        load_forecast_metrics.clear()
-        load_churn_results.clear()
-        load_churn_metrics.clear()
-        load_inventory.clear()
-
-        remaining = [
-            path.name for path in required_files
-            if not path.exists()
-        ]
-
-        if remaining:
-            st.error(
-                "The pipeline finished, but these files are still missing: "
-                + ", ".join(remaining)
-            )
-            return False
-
-        st.success("RetailPulse datasets and reports are ready.")
-        return True
-
-    except PipelineError as exc:
-        st.error("RetailPulse could not generate all required outputs.")
-        st.code(str(exc))
-        return False
-
-    except Exception as exc:
-        st.error(f"Unexpected pipeline error: {exc}")
-        return False

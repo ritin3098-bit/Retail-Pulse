@@ -35,7 +35,7 @@ from dashboard.auth import require_login
 
 from dashboard.utils import (
     inject_theme,
-    ensure_pipeline_outputs,
+    ensure_clean_data,
     load_clean,
     load_segments,
     load_inventory,
@@ -81,7 +81,7 @@ st.caption(
 # PREPARE AND LOAD CLEANED DATA
 # ============================================================
 
-if not ensure_pipeline_outputs():
+if not ensure_clean_data():
     st.stop()
 
 clean = load_clean()
