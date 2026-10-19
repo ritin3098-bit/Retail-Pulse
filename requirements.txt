@@ -1,19 +1,7 @@
-pandas
-numpy
-matplotlib
-seaborn
-scikit-learn
-statsmodels
-jupyter
-openpyxl
-prophet
-torch
-xgboost
-shap
-mlflow
-optuna
-streamlit
-great-expectations
-evidently>=0.4,<0.5
-scipy
-pytest
+# Runtime dependencies for the Streamlit dashboard (Streamlit Community Cloud).
+# The dashboard only reads pre-computed CSV/PNG files, so heavy ML libraries
+# (torch, prophet, xgboost, shap, mlflow, evidently ...) are NOT needed here.
+streamlit>=1.40
+pandas>=2.2
+numpy>=1.26
+scipy>=1.11

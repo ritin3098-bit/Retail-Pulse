@@ -77,9 +77,9 @@ st.divider()
 st.subheader("Prophet Forecast Detail")
 col1, col2 = st.columns(2)
 with col1:
-    show_figure_if_exists("08_prophet_forecast.png", use_container_width=True)
+    show_figure_if_exists("08_prophet_forecast.png", width="stretch")
 with col2:
-    show_figure_if_exists("09_prophet_components.png", use_container_width=True)
+    show_figure_if_exists("09_prophet_components.png", width="stretch")
 
 st.subheader("LSTM Backtest")
-show_figure_if_exists("10_lstm_forecast.png", use_container_width=True)
+show_figure_if_exists("10_lstm_forecast.png", width="stretch")

@@ -46,7 +46,7 @@ display_cols = [c for c in display_cols if c in filtered.columns]
 
 st.dataframe(
     filtered[display_cols].style.apply(highlight_status, axis=1),
-    use_container_width=True,
+    width="stretch",
     height=420,
 )
 
@@ -58,4 +58,4 @@ st.download_button(
 )
 
 st.divider()
-show_figure_if_exists("13_inventory_status.png", use_container_width=True)
+show_figure_if_exists("13_inventory_status.png", width="stretch")

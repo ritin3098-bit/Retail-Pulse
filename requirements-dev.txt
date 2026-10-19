@@ -1,0 +1,18 @@
+# Full environment for running the pipeline locally (python -m src.*) and tests:
+#   pip install -r requirements-dev.txt
+-r requirements.txt
+matplotlib
+seaborn
+scikit-learn
+statsmodels
+jupyter
+openpyxl
+prophet
+torch
+xgboost
+shap
+mlflow
+optuna
+great-expectations
+evidently>=0.4,<0.5
+pytest

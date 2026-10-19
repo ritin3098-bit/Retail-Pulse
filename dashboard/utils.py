@@ -185,6 +185,29 @@ def load_clean():
 
 
 @st.cache_data
+def load_monitoring_data():
+    """
+    Load only the columns the drift page needs (InvoiceDate + monitored
+    columns) as float32. Reading all 12 columns of clean_all.csv (~100 MB
+    on disk) needs ~1 GB of RAM and crashes Streamlit Community Cloud.
+    """
+    path = DATA_DIR / "clean_all.csv"
+    if not path.is_file():
+        return None
+    try:
+        df = pd.read_csv(
+            path,
+            usecols=["InvoiceDate", "Quantity", "Price", "Revenue"],
+            dtype={"Quantity": "float32", "Price": "float32", "Revenue": "float32"},
+            parse_dates=["InvoiceDate"],
+        )
+        return df
+    except (OSError, ValueError, pd.errors.ParserError) as exc:
+        st.warning(f"Could not read `clean_all.csv`: {exc}")
+        return None
+
+
+@st.cache_data
 def load_customers():
     """Load cleaned customer-level sales records."""
     return _safe_read_csv(

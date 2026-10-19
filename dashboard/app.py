@@ -264,7 +264,7 @@ st.subheader("Top Countries & Products")
 
 show_figure_if_exists(
     "02_top_countries_products.png",
-    use_container_width=True,
+    width="stretch",
 )
 
 

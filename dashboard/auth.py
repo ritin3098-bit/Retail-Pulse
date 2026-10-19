@@ -165,7 +165,7 @@ def _login_form(st):
     with st.form("login_form"):
         identifier = st.text_input("Username or email")
         password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Log in", use_container_width=True)
+        submitted = st.form_submit_button("Log in", width="stretch")
     if submitted:
         try:
             st.session_state["user"] = authenticate(identifier, password)
@@ -181,7 +181,7 @@ def _register_form(st):
         email = st.text_input("Email")
         password = st.text_input("Password", type="password", help="At least 8 characters, with a letter and a number.")
         confirm = st.text_input("Confirm password", type="password")
-        submitted = st.form_submit_button("Create account", use_container_width=True)
+        submitted = st.form_submit_button("Create account", width="stretch")
     if submitted:
         try:
             user = register_user(username, email, password, confirm, full_name)
@@ -220,5 +220,5 @@ def require_login():
     with st.sidebar:
         st.markdown(f"**👤 {user['full_name'] or user['username']}**")
         st.caption(user["email"])
-        if st.button("Log out", use_container_width=True):
+        if st.button("Log out", width="stretch"):
             logout()
