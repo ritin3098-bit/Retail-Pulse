@@ -25,5 +25,13 @@ __pycache__/
 *.pt
 *.pth
 
+# Processed datasets
+data/processed/
+
+# Generated figures and plots
+figures/
+reports/figures/
+outputs/figures/
+
 # Temporary files
 *.log
