@@ -81,7 +81,7 @@ st.caption(
 # PREPARE AND LOAD CLEANED DATA
 # ============================================================
 
-if not ensure_pipeline_outputs:
+if not ensure_pipeline_outputs():
     st.stop()
 
 clean = load_clean()
